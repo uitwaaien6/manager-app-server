@@ -35,9 +35,11 @@ async function sendVerificationEmail(email, user) {
 }
 
 router.post('/signup', async (req, res) => {
-    const { email, encryptedPassword } = req.body;
+    const { email } = req.body;
+    const encryptenData = req.body;
+    const password = decryptPassword(encryptenData);
 
-    if (!email || !encryptedPassword) {
+    if (!email || !password) {
         return res.status(422).send({ msg: 'must provide email and password' });
     }
 
@@ -54,20 +56,16 @@ router.post('/signup', async (req, res) => {
         });
     } catch (error) {
         console.log(error.message);
+        return res.status(400).send({ msg: 'The email adress you entered is already in use' });
     }
 
-    const encryptenData = req.body;
-
     try {
-        const password = decryptPassword(encryptenData);
-
         const user = new User({ email, password });
-        //user.emailToken = Math.random().toString().split('.')[1];
         await user.save();
 
         //sendEmail(email, user);
 
-        const token = jwt.sign({ userId: user._id }, 'MY_SECRET_KEY', { expiresIn: '1m' });
+        const token = jwt.sign({ userId: user._id }, 'MY_SECRET_KEY', { expiresIn: '30m' });
         res.send({ token });
     } catch (error) {
         console.log(error.message);
@@ -98,29 +96,22 @@ router.get('/api/auth/verification/verify-account/:userId/:verificationToken', a
 
 router.post('/signin', async (req, res) => {
     const { email, encryptedPassword } = req.body;
-
     if (!email || !encryptedPassword) {
         return res.status(422).send({ msg: 'Something went wrong' });
     }
-
     const encryptenData = req.body;
-    console.log(encryptenData);
-
     const user = await User.findOne({ email });
-
     if (!user) {
         res.status(422).send({ error: 'Email not found' });
     }
-
     try {
         const password = decryptPassword(encryptenData);
         await user.comparePassword(password);
-        const token = jwt.sign({ userId: user._id }, 'MY_SECRET_KEY', { expiresIn: '30m' });
+        const token = jwt.sign({ userId: user._id }, 'MY_SECRET_KEY', { expiresIn: '0.5m' });
         res.send({ token });
     } catch (error) {
         return res.status(422).send({ error: 'Invalid password or email' });
     }
-
 });
 
 
