@@ -36,13 +36,21 @@ async function sendVerificationEmail(email, user) {
     }); 
 }
 
-router.post('/signup', async (req, res) => {
-    const { email } = req.body;
-    const encryptenData = req.body;
-    const password = decryptPassword(encryptenData);
+// #route:  POST /register
+// #desc:   Register a new user
+// #access: Public
 
-    if (!email || !password) {
+router.post('/signup', async (req, res) => {
+    const { userName, email, passwordEncryption, passwordConfirmEncryption } = req.body;
+    const password = decryptPassword(passwordEncryption);
+    const passwordConfirm = decryptPassword(passwordConfirmEncryption);
+
+    if (!userName || !email || !password || !passwordConfirm) {
         return res.status(422).send({ msg: 'must provide email and password' });
+    }
+
+    if (password !== passwordConfirm) {
+        return res.status(422).json({ error: 'password-match', msg: 'Passwords do not match' });
     }
 
     if (!validator.validate(email)) {
@@ -70,10 +78,9 @@ router.post('/signup', async (req, res) => {
         // calculate the expiration date of json web token by adding millisceonds to the current time
         const tokenExpInMin = Math.floor(JWT_Exp / 60000);
         const token = jwt.sign({ userId: user._id }, 'MY_SECRET_KEY', { expiresIn: `${tokenExpInMin}m` });
-
         const expiration = Date.now() + JWT_Exp;
 
-        res.send({ 
+        res.json({ 
             token,
             expiration
         });
@@ -105,8 +112,10 @@ router.get('/api/auth/verification/verify-account/:userId/:verificationToken', a
 
 
 router.post('/signin', async (req, res) => {
-    const { email, encryptedPassword } = req.body;
-    if (!email || !encryptedPassword) {
+    const { userName, email, passwordEncryption} = req.body;
+    const password = decryptPassword(passwordEncryption);
+
+    if (!email || password) {
         return res.status(422).send({ msg: 'Something went wrong' });
     }
     const encryptenData = req.body;
@@ -115,10 +124,14 @@ router.post('/signin', async (req, res) => {
         res.status(422).send({ error: 'Email not found' });
     }
     try {
-        const password = decryptPassword(encryptenData);
         await user.comparePassword(password);
-        const token = jwt.sign({ userId: user._id }, 'MY_SECRET_KEY', { expiresIn: '30m' });
-        res.send({ token });
+        const tokenExpInMin = Math.floor(JWT_Exp / 60000);
+        const token = jwt.sign({ userId: user._id }, 'MY_SECRET_KEY', { expiresIn: `${tokenExpInMin}m` });
+        const expiration = Date.now() + JWT_Exp;
+        res.send({ 
+            token,
+            expiration
+        });
     } catch (error) {
         return res.status(422).send({ error: 'Invalid password or email' });
     }
