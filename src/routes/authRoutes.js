@@ -7,6 +7,8 @@ const nodemailer = require('nodemailer');
 const { decryptPassword } = require('../encryption/coefficientFairEncryption');
 const { authentication } = require('../middlewares/authentication');
 
+const JWT_Exp = 11000000.00;
+
 const router = express.Router();
 
 async function sendVerificationEmail(email, user) {
@@ -65,8 +67,16 @@ router.post('/signup', async (req, res) => {
 
         //sendEmail(email, user);
 
-        const token = jwt.sign({ userId: user._id }, 'MY_SECRET_KEY', { expiresIn: '30m' });
-        res.send({ token });
+        // calculate the expiration date of json web token by adding millisceonds to the current time
+        const tokenExpInMin = Math.floor(JWT_Exp / 60000);
+        const token = jwt.sign({ userId: user._id }, 'MY_SECRET_KEY', { expiresIn: `${tokenExpInMin}m` });
+
+        const expiration = Date.now() + JWT_Exp;
+
+        res.send({ 
+            token,
+            expiration
+        });
     } catch (error) {
         console.log(error.message);
         return res.status(422).send({ msg: 'Something went wrong in signup' });
@@ -107,7 +117,7 @@ router.post('/signin', async (req, res) => {
     try {
         const password = decryptPassword(encryptenData);
         await user.comparePassword(password);
-        const token = jwt.sign({ userId: user._id }, 'MY_SECRET_KEY', { expiresIn: '0.5m' });
+        const token = jwt.sign({ userId: user._id }, 'MY_SECRET_KEY', { expiresIn: '30m' });
         res.send({ token });
     } catch (error) {
         return res.status(422).send({ error: 'Invalid password or email' });
