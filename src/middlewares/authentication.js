@@ -21,6 +21,7 @@ function authentication(req, res, next) {
         }
 
         const { userId } = payload;
+        
         const user = await User.findById(userId);
         if (!user) {
             return res.status(422).send({ error: 'no-user', msg: 'user couldnt be found with the given Id'});

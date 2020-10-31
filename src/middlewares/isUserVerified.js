@@ -1,7 +1,6 @@
 const mongoose = require('mongoose');
 const User = mongoose.model('User');
 
-
 async function isUserVerified(req, res, next) {
     const { email } = req.body;
 

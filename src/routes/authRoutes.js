@@ -45,7 +45,7 @@ router.post('/signup', async (req, res) => {
     const password = decryptPassword(passwordEncryption);
     const passwordConfirm = decryptPassword(passwordConfirmEncryption);
 
-    if (!userName || !email || !password || !passwordConfirm) {
+    if (!email || !password || !passwordConfirm) {
         return res.status(422).send({ msg: 'must provide email and password' });
     }
 
@@ -59,11 +59,7 @@ router.post('/signup', async (req, res) => {
     }
 
     try {
-        await User.findOne({ email }, (err, user) => {
-            if (user) {
-                return res.status(400).send({ msg: 'The email adress you entered is already in use' });
-            }
-        });
+        await User.findOne({ email });
     } catch (error) {
         console.log(error.message);
         return res.status(400).send({ msg: 'The email adress you entered is already in use' });
@@ -112,23 +108,22 @@ router.get('/api/auth/verification/verify-account/:userId/:verificationToken', a
 
 
 router.post('/signin', async (req, res) => {
-    const { userName, email, passwordEncryption} = req.body;
+    const { email, passwordEncryption} = req.body;
     const password = decryptPassword(passwordEncryption);
 
-    if (!email || password) {
+    if (!email || !password) {
         return res.status(422).send({ msg: 'Something went wrong' });
     }
-    const encryptenData = req.body;
     const user = await User.findOne({ email });
     if (!user) {
-        res.status(422).send({ error: 'Email not found' });
+        return res.status(422).send({ error: 'Email not found' });
     }
     try {
         await user.comparePassword(password);
         const tokenExpInMin = Math.floor(JWT_Exp / 60000);
         const token = jwt.sign({ userId: user._id }, 'MY_SECRET_KEY', { expiresIn: `${tokenExpInMin}m` });
         const expiration = Date.now() + JWT_Exp;
-        res.send({ 
+        res.json({ 
             token,
             expiration
         });
@@ -137,6 +132,5 @@ router.post('/signin', async (req, res) => {
     }
 });
 
-
-
 module.exports = router;
+
