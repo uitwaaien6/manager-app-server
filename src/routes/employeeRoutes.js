@@ -22,6 +22,7 @@ router.post('/employees', authentication, async (req, res) => {
 router.get('/employees', authentication, async (req, res) => {
     const userId = req.user._id;
     const employees = await Employee.find({ userId });
+    console.log(employees[0]._id);
     res.send(employees);
 });
 

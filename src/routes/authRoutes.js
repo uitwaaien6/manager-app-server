@@ -42,6 +42,7 @@ async function sendVerificationEmail(email, user) {
 
 router.post('/signup', async (req, res) => {
     const { userName, email, passwordEncryption, passwordConfirmEncryption } = req.body;
+
     const password = decryptPassword(passwordEncryption);
     const passwordConfirm = decryptPassword(passwordConfirmEncryption);
 
@@ -50,7 +51,7 @@ router.post('/signup', async (req, res) => {
     }
 
     if (password !== passwordConfirm) {
-        return res.status(422).json({ error: 'password-match', msg: 'Passwords do not match' });
+        return res.status(422).send({ error: 'password-match', msg: 'Passwords do not match' });
     }
 
     if (!validator.validate(email)) {
@@ -59,14 +60,16 @@ router.post('/signup', async (req, res) => {
     }
 
     try {
-        await User.findOne({ email });
+        const user = await User.findOne({ email });
+        if (user) {
+            return res.status(400).send({ msg: 'The email adress you entered is already in use' });
+        }
     } catch (error) {
         console.log(error.message);
-        return res.status(400).send({ msg: 'The email adress you entered is already in use' });
     }
 
     try {
-        const user = new User({ email, password });
+        const user = new User({ email, password, isVerified: false });
         await user.save();
 
         //sendEmail(email, user);
@@ -86,6 +89,8 @@ router.post('/signup', async (req, res) => {
     }
 });
 
+
+
 router.get('/api/auth/verification/verify-account/:userId/:verificationToken', async (req, res) => {
     const { userId, verificationToken } = req.params;
     if (!userId || !verificationToken) {
@@ -95,7 +100,7 @@ router.get('/api/auth/verification/verify-account/:userId/:verificationToken', a
     try {
         const user = await User.findById({ userId });
         if (!user) {
-            return res.status(422).send({ error: 'user is not found', msg: 'User couldnt be found with this emailToken' });
+            return res.status(422).send({ error: 'user-not-found', msg: 'User couldnt be found with this id' });
         }
     } catch (error) {
         console.log(error.message);
@@ -108,7 +113,7 @@ router.get('/api/auth/verification/verify-account/:userId/:verificationToken', a
 
 
 router.post('/signin', async (req, res) => {
-    const { email, passwordEncryption} = req.body;
+    const { email, passwordEncryption } = req.body;
     const password = decryptPassword(passwordEncryption);
 
     if (!email || !password) {

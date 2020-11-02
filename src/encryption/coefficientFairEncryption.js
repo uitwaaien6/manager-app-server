@@ -65,15 +65,17 @@ function encryptPassword(password="") {
 }
 
 function decryptPassword(encryptenData) {
-    const { encryptedPassword, encryptedCoefficient, newCoefficients } = encryptenData;
+
+    let { encryptedPassword, encryptedCoefficient, newCoefficients } = encryptenData;
+    const backupData = { 
+        encryptedPassword: null, 
+        encryptedCoefficient: null,
+        newCoefficients: null 
+    };
 
     if (!encryptedPassword || !encryptedCoefficient || !newCoefficients) {
-        let boundEncryptions = [encryptedPassword, encryptedCoefficient, newCoefficients];
-        let boundEncryptionsCtr = 0;
-        for (let key in encryptenData) {
-            encryptenData[key] = boundEncryptions[boundEncryptionsCtr];
-            boundEncryptionsCtr++;
-        }
+        console.error('The provided data is invalid in encryptenData');
+        return encryptedPassword;
     }
 
     if (typeof newCoefficients !== 'string' && !Array.isArray(newCoefficients)) {
