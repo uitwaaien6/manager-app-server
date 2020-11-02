@@ -3,18 +3,22 @@ const mongoose = require('mongoose');
 const employeeSchema = mongoose.Schema({
     userId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User'
+        ref: 'User',
+        required: true
     },
     name: {
         type: String,
-        default: ""
+        default: "",
+        required: true
     },
     phone: {
-        type: String,
-        unique: true
+        type: Number,
+        unique: true,
+        required: true
     },
     shift: {
-        type: String
+        type: String,
+        required: true
     }
 });
 
