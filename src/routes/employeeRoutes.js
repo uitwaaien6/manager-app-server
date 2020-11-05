@@ -10,7 +10,9 @@ const { authentication } = require('../middlewares/authentication');
 
 const router = express.Router();
 
-router.post('/employees', authentication, async (req, res) => {
+router.use(authentication);
+
+router.post('/employees', async (req, res) => {
     const { name, phone, shift } = req.body;
     const userId = req.user._id;
     const employee = new Employee({ userId, name, phone, shift });
@@ -19,10 +21,17 @@ router.post('/employees', authentication, async (req, res) => {
     res.send({ success: 'true', msg: 'Employee has been saved' });
 });
 
-router.get('/employees', authentication, async (req, res) => {
+router.post('/employees/edit', async (req, res) => {
+    const { name, phone, shift, employeeId } = req.body;
+    await Employee.updateOne({ _id: employeeId }, { $set: { name, phone, shift } });
+    //const employee = await Employee.findOne({ _id: employeeId });
+    //await employee.save();
+    res.send({ success: 'true', msg: 'Employee has been edited' });
+});
+
+router.get('/employees', async (req, res) => {
     const userId = req.user._id;
     const employees = await Employee.find({ userId });
-    console.log(employees[0]._id);
     res.send(employees);
 });
 
