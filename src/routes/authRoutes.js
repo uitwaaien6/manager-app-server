@@ -3,43 +3,19 @@ const mongoose = require('mongoose');
 const User = mongoose.model('User');
 const jwt = require('jsonwebtoken');
 const validator = require('email-validator');
-const nodemailer = require('nodemailer');
 const { decryptPassword } = require('../encryption/coefficientFairEncryption');
 const { authentication } = require('../middlewares/authentication');
+const { userEmailVerification } = require('../middlewares/userEmailVerification');
+const { sendVerificationEmail } = require('../email/sendVerificationEmail');
 
-const JWT_Exp = 11000000.00;
+const JWT_EXP = 11000000.00;
+const EMAIL_VERIFICATION_EXP = 11000000.00;
 
 const router = express.Router();
-
-async function sendVerificationEmail(email, user) {
-    const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-            user: 'ruzgarata6@gmail.com',
-            pass: process.env.GMAIL_PASSWORD
-        }
-    });
-      
-    const mailOptions = {
-        from: 'no-reply@konsolgetir.com',
-        to: email,
-        subject: 'Thank you for using our app, please verify your email address by cliking the link below',
-        text: ``
-    };
-      
-    transporter.sendMail(mailOptions, function(error, info){
-        if (error) {
-            console.log(error);
-        } else {
-            console.log('Email sent: ' + info.response);
-        }
-    }); 
-}
 
 // #route:  POST /register
 // #desc:   Register a new user
 // #access: Public
-
 router.post('/signup', async (req, res) => {
     const { userName, email, passwordEncryption, passwordConfirmEncryption } = req.body;
 
@@ -66,49 +42,83 @@ router.post('/signup', async (req, res) => {
         }
     } catch (error) {
         console.log(error.message);
+        return res.status(400).send({ msg: 'The email adress you entered is already in use' });
     }
 
     try {
-        const user = new User({ email, password, isVerified: false });
+        const secretEmailToken = Math.random().toString().split('.')[1];
+        const user = new User({ email, password, secretEmailToken, status: 'pending' });
         await user.save();
 
-        //sendEmail(email, user);
+        const emailVerificationExp = Date.now() + EMAIL_VERIFICATION_EXP;
+        const emailVerificationLink = `https://ff091a243e67.ngrok.io/api/auth/verification/verify-account/${user._id}/${user.secretEmailToken}/${emailVerificationExp}`;
 
-        // calculate the expiration date of json web token by adding millisceonds to the current time
-        const tokenExpInMin = Math.floor(JWT_Exp / 60000);
-        const token = jwt.sign({ userId: user._id }, 'MY_SECRET_KEY', { expiresIn: `${tokenExpInMin}m` });
-        const expiration = Date.now() + JWT_Exp;
+        sendVerificationEmail(email, emailVerificationLink);
 
-        res.json({ 
-            token,
-            expiration
-        });
     } catch (error) {
         console.log(error.message);
         return res.status(422).send({ msg: 'Something went wrong in signup' });
     }
+
+
+    const user = await User.findOne({ email });
+    res.json({ status: user.status });
 });
 
+// #route:  GET /api/auth/verification/verify-account/:userId/:verificationToken
+// #desc:   Email verification route
+// #access: Private
+router.get('/api/auth/verification/verify-account/:userId/:verificationToken/:expiration', async (req, res) => {
+    const { userId, verificationToken, expiration } = req.params;
 
-
-router.get('/api/auth/verification/verify-account/:userId/:verificationToken', async (req, res) => {
-    const { userId, verificationToken } = req.params;
-    if (!userId || !verificationToken) {
-        return res.redirect('/');
+    if (!userId || !verificationToken || !expiration) {
+        return res.status(422).send({ error: 'null-type', msg: 'userId or verificationToken doesnt exist' });
     }
 
     try {
-        const user = await User.findById({ userId });
+        const user = await User.findById(userId);
+
         if (!user) {
             return res.status(422).send({ error: 'user-not-found', msg: 'User couldnt be found with this id' });
         }
+
+        if (user.secretEmailToken !== verificationToken || Date.now() > expiration) {
+            return res.status(422).send({ error: 'verificationToken-does-not-match, verificationToken-expired', msg: 'Users secretEmailToken doesnt match with verificationToken or its expired' });
+        }
+
+        await User.updateOne({ _id: userId }, { $set: { status: 'active', secretEmailToken: null } });
     } catch (error) {
         console.log(error.message);
     }
 
-    console.log('This user has been verified');
-    console.log(user);
     res.send('Your Account has been verified');
+});
+
+// #route:  GET /api/auth/verification/verify-account/resend/:userId/:verificationToken
+// #desc:   Email resend verification route
+// #access: Private
+router.get('/api/auth/verification/verify-account/resend-link', authentication, async (req, res) => {
+    const user = req.user;
+
+    if (!user) {
+        return res.status(422).send({ error: 'user-not-found', msg: 'User couldnt be found' });
+    }
+
+    const secretEmailToken = Math.random().toString().split('.')[1];
+
+    try {
+        await User.updateOne({ _id: user._id }, { $set: { secretEmailToken } });
+
+        const emailVerificationExp = Date.now() + EMAIL_VERIFICATION_EXP;
+        const emailVerificationLink = `https://ff091a243e67.ngrok.io/api/auth/verification/verify-account/${user._id}/${secretEmailToken}/${emailVerificationExp}`;
+
+        sendVerificationEmail(user.email, emailVerificationLink);
+    } catch (error) {
+        console.log(error.message);
+        return res.status(422).send({ error: 'Couldnt update users email token' });
+    }
+
+    res.send('Email verification link has been re-sent to your email');
 });
 
 
@@ -119,22 +129,35 @@ router.post('/signin', async (req, res) => {
     if (!email || !password) {
         return res.status(422).send({ msg: 'Something went wrong' });
     }
-    const user = await User.findOne({ email });
-    if (!user) {
-        return res.status(422).send({ error: 'Email not found' });
-    }
+
     try {
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.status(422).send({ error: 'Email not found' });
+        }
+
         await user.comparePassword(password);
-        const tokenExpInMin = Math.floor(JWT_Exp / 60000);
-        const token = jwt.sign({ userId: user._id }, 'MY_SECRET_KEY', { expiresIn: `${tokenExpInMin}m` });
-        const expiration = Date.now() + JWT_Exp;
+
+        const tokenExpInMin = Math.floor(JWT_EXP / 60000);
+        const token = jwt.sign({ userId: user._id, status: user.status }, 'MY_SECRET_KEY', { expiresIn: `${tokenExpInMin}m` });
+        const jwtExpiration = Date.now() + JWT_EXP;
+        const status = user.status;
+
         res.json({ 
             token,
-            expiration
+            jwtExpiration,
+            status
         });
+
     } catch (error) {
         return res.status(422).send({ error: 'Invalid password or email' });
     }
+});
+
+router.get('/api/auth/get-status', authentication, (req, res) => {
+    const status = req.user.status;
+    res.send(status);
 });
 
 module.exports = router;

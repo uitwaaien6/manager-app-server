@@ -24,7 +24,7 @@ function encryptPassword(password="") {
     }
 
     const letters = 'qwertyuiopasdfghjklzxcvbnm1234567890!&?$'.split('');
-    const complexity = 4;
+    const complexity = 4; // the complexity has to be 1 character number otherwise the algorithm cannot calculate the coefficients, will improve in the future
     let coefficients = [];
     let coefficient = 0;
     let encryption = '';
@@ -65,13 +65,7 @@ function encryptPassword(password="") {
 }
 
 function decryptPassword(encryptenData) {
-
-    let { encryptedPassword, encryptedCoefficient, newCoefficients } = encryptenData;
-    const backupData = { 
-        encryptedPassword: null, 
-        encryptedCoefficient: null,
-        newCoefficients: null 
-    };
+    const { encryptedPassword, encryptedCoefficient, newCoefficients } = encryptenData;
 
     if (!encryptedPassword || !encryptedCoefficient || !newCoefficients) {
         console.error('The provided data is invalid in encryptenData');

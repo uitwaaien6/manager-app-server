@@ -12,10 +12,15 @@ const userSchema = mongoose.Schema({
         unique: false,
         required: true
     },
-    isVerified: {
-        type: Boolean,
-        default: false,
+    status: {
+        type: String,
+        default: "pending",
         required: true
+    },
+    secretEmailToken: {
+        type: String,
+        required: true,
+        unique: false
     }
 });
 

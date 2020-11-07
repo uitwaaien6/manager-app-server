@@ -9,7 +9,7 @@ const bodyParser = require('body-parser');
 const authRoutes = require('./routes/authRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const { authentication } = require('./middlewares/authentication');
-const { isUserVerified } = require('./middlewares/isUserVerified');
+const { userEmailVerification } = require('./middlewares/userEmailVerification');
 const app = express();
 
 app.use(bodyParser.json());
@@ -33,7 +33,8 @@ mongoose.connection.on('error', (err) => {
 });
 
 app.get('/', authentication, (req, res) => {
-    res.send({ email: req.user.email });
+    const email = req.user.email;
+    res.send({ emai });
 });
 
 app.listen(3000, (req, res) => {

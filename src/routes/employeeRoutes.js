@@ -5,7 +5,6 @@ const Employee = mongoose.model('Employee');
 const jwt = require('jsonwebtoken');
 const validator = require('email-validator');
 const nodemailer = require('nodemailer');
-const { decryptPassword } = require('../encryption/coefficientFairEncryption');
 const { authentication } = require('../middlewares/authentication');
 
 const router = express.Router();
