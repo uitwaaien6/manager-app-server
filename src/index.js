@@ -9,7 +9,6 @@ const bodyParser = require('body-parser');
 const authRoutes = require('./routes/authRoutes');
 const employeeRoutes = require('./routes/employeeRoutes');
 const { authentication } = require('./middlewares/authentication');
-const { userEmailVerification } = require('./middlewares/userEmailVerification');
 const app = express();
 
 app.use(bodyParser.json());
@@ -42,3 +41,4 @@ app.listen(3000, (req, res) => {
 });
 
 console.log('WITHOUT WARNING!!!');
+
