@@ -9,7 +9,7 @@ const { decryptPassword } = require('../encryption/coefficientFairEncryption');
 const { authentication } = require('../middlewares/authentication');
 const { sendVerificationEmail } = require('../email/sendVerificationEmail');
 
-
+const DOMAIN_ENDPOINT = `https://a69b28465e81.ngrok.io`;
 const JWT_EXP = 11000000.00;
 const EMAIL_VERIFICATION_EXP = 11000000.00;
 const ACTIVE_EMAIL_STATUS = 'active';
@@ -54,14 +54,9 @@ router.post('/signup', async (req, res) => {
         return res.status(422).send({ error: 'invalid-password', msg: 'The password you entered is not secure' });
     }
 
-    try {
-        const user = await User.findOne({ email });
-        if (user) {
-            return res.status(400).send({ msg: 'The email adress you entered is already in use' });
-        }
-    } catch (error) {
-        console.log(error.message);
-        return res.status(400).send({ msg: 'The email adress you entered is already in use' });
+    const checkUser = await User.findOne({ email });
+    if (checkUser) {
+        return res.status(422).send({ error: 'email-already-in-use', msg: 'Email you entered is already in use' });
     }
 
     try {
@@ -71,7 +66,7 @@ router.post('/signup', async (req, res) => {
         await user.save();
 
         const emailVerificationExp = Date.now() + EMAIL_VERIFICATION_EXP;
-        const emailVerificationLink = `https://63437656ff2b.ngrok.io/api/auth/verification/verify-account/${user._id}/${user.secretEmailToken}/${emailVerificationExp}`;
+        const emailVerificationLink = `${DOMAIN_ENDPOINT}/api/auth/verification/verify-account/${user._id}/${user.secretEmailToken}/${emailVerificationExp}`;
 
         sendVerificationEmail(email, emailVerificationLink);
 
@@ -79,7 +74,6 @@ router.post('/signup', async (req, res) => {
         console.log(error.message);
         return res.status(422).send({ msg: 'Something went wrong in signup' });
     }
-
 
     const user = await User.findOne({ email });
     res.json({ 
@@ -106,7 +100,7 @@ router.get('/api/auth/verification/verify-account/:userId/:verificationToken/:ex
         }
 
         if (user.secretEmailToken !== verificationToken || Date.now() > expiration) {
-            return res.status(422).send({ error: 'verificationToken-does-not-match, verificationToken-expired', msg: 'Users secretEmailToken doesnt match with verificationToken or its expired' });
+            return res.status(422).send({ error: 'verificationToken-does-not-match, verificationToken-expired', msg: 'Users token doesnt match with verification token or its expired' });
         }
 
         user.status = 'active';
@@ -136,7 +130,7 @@ router.get('/api/auth/verification/verify-account/resend-link', authentication, 
         await user.save();
 
         const emailVerificationExp = Date.now() + EMAIL_VERIFICATION_EXP;
-        const emailVerificationLink = `https://63437656ff2b.ngrok.io/api/auth/verification/verify-account/${user._id}/${secretEmailToken}/${emailVerificationExp}`;
+        const emailVerificationLink = `${DOMAIN_ENDPOINT}/api/auth/verification/verify-account/${user._id}/${secretEmailToken}/${emailVerificationExp}`;
 
         sendVerificationEmail(user.email, emailVerificationLink);
 
