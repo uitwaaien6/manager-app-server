@@ -113,7 +113,7 @@ router.get('/api/auth/verification/verify-account/:userId/:verificationToken/:ex
     res.send('Your Account has been verified');
 });
 
-// #route:  GET /api/auth/verification/verify-account/resend/:userId/:verificationToken
+// #route:  GET /api/auth/verification/verify-account/resend-link
 // #desc:   Email resend verification route
 // #access: Private
 router.get('/api/auth/verification/verify-account/resend-link', authentication, async (req, res) => {
@@ -161,7 +161,7 @@ router.get('/api/auth/verification/verify-account/check-user-status', authentica
         return res.status(422).send({ error, msg: 'Something went wrong in check email validity' });
     }
 
-    res.send('User is active');
+    res.send({ status: user.status });
 });
 
 
