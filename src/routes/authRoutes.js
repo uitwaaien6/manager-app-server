@@ -8,10 +8,13 @@ const emailValidator = require('email-validator');
 const { decryptPassword } = require('../encryption/coefficientFairEncryption');
 const { authentication } = require('../middlewares/authentication');
 const { sendVerificationEmail } = require('../email/sendVerificationEmail');
+const { sendPasswordResetEmail } = require('../email/sendPasswordResetEmail');
+const bcrypt = require('bcrypt');
 
-const DOMAIN_ENDPOINT = `https://a69b28465e81.ngrok.io`;
+const DOMAIN_ENDPOINT = `https://7d58e3412fa1.ngrok.io`;
 const JWT_EXP = 11000000.00;
 const EMAIL_VERIFICATION_EXP = 11000000.00;
+const PASSWORD_RESET_EXP = 1100000.00;
 const ACTIVE_EMAIL_STATUS = 'active';
 const PENDING_EMAIL_STATUS = 'pending';
 
@@ -61,12 +64,12 @@ router.post('/signup', async (req, res) => {
 
     try {
 
-        const secretEmailToken = secureRandomString({ length: 128 });
-        const user = new User({ email, password, secretEmailToken, status: 'pending' });
+        const emailVerificationToken = secureRandomString({ length: 128 });
+        const user = new User({ email, password, emailVerificationToken, status: PENDING_EMAIL_STATUS });
         await user.save();
 
         const emailVerificationExp = Date.now() + EMAIL_VERIFICATION_EXP;
-        const emailVerificationLink = `${DOMAIN_ENDPOINT}/api/auth/verification/verify-account/${user._id}/${user.secretEmailToken}/${emailVerificationExp}`;
+        const emailVerificationLink = `${DOMAIN_ENDPOINT}/api/auth/verification/verify-account/${user._id}/${user.emailVerificationToken}/${emailVerificationExp}`;
 
         sendVerificationEmail(email, emailVerificationLink);
 
@@ -99,18 +102,18 @@ router.get('/api/auth/verification/verify-account/:userId/:verificationToken/:ex
             return res.status(422).send({ error: 'user-not-found', msg: 'User couldnt be found with this id' });
         }
 
-        if (user.secretEmailToken !== verificationToken || Date.now() > expiration) {
+        if (user.emailVerificationToken !== verificationToken || Date.now() > expiration) {
             return res.status(422).send({ error: 'verificationToken-does-not-match, verificationToken-expired', msg: 'Users token doesnt match with verification token or its expired' });
         }
 
-        user.status = 'active';
-        user.secretEmailToken = null;
+        user.status = ACTIVE_EMAIL_STATUS;
+        user.emailVerificationToken = undefined;
         await user.save();
     } catch (error) {
         console.log(error.message);
     }
 
-    res.send('Your Account has been verified');
+    res.json({ success: true, msg: 'Your account has been verified' });
 });
 
 // #route:  GET /api/auth/verification/verify-account/resend-link
@@ -123,14 +126,14 @@ router.get('/api/auth/verification/verify-account/resend-link', authentication, 
         return res.status(422).send({ error: 'user-not-found', msg: 'User couldnt be found' });
     }
 
-    const secretEmailToken = secureRandomString({ length: 128 });
+    const emailVerificationToken = secureRandomString({ length: 128 });
 
     try {
-        user.secretEmailToken = secretEmailToken;
+        user.emailVerificationToken = emailVerificationToken;
         await user.save();
 
         const emailVerificationExp = Date.now() + EMAIL_VERIFICATION_EXP;
-        const emailVerificationLink = `${DOMAIN_ENDPOINT}/api/auth/verification/verify-account/${user._id}/${secretEmailToken}/${emailVerificationExp}`;
+        const emailVerificationLink = `${DOMAIN_ENDPOINT}/api/auth/verification/verify-account/${user._id}/${emailVerificationToken}/${emailVerificationExp}`;
 
         sendVerificationEmail(user.email, emailVerificationLink);
 
@@ -161,10 +164,12 @@ router.get('/api/auth/verification/verify-account/check-user-status', authentica
         return res.status(422).send({ error, msg: 'Something went wrong in check email validity' });
     }
 
-    res.send({ status: user.status });
+    res.json({ success: true, status: user.status });
 });
 
-
+// #route:  POST /signin
+// #desc:   Sign user in route
+// #access: Public
 router.post('/signin', async (req, res) => {
     const { email, passwordEncryption } = req.body;
     const password = decryptPassword(passwordEncryption);
@@ -194,6 +199,143 @@ router.post('/signin', async (req, res) => {
     } catch (error) {
         return res.status(422).send({ error: 'Invalid password or email' });
     }
+});
+
+
+// #route:  POST /api/auth/verification/password-reset/generate-code
+// #desc:   Generate password reset code for the user and send it through email
+// #access: Private
+router.post('/api/auth/verification/password-reset/generate-code', async (req, res) => {
+    const { email } = req.body;
+
+    if (!email) {
+        return res.status(422).send({ error: 'email-not-found', msg: 'Please provide email' });
+    } else {
+        try {
+            const user = await User.findOne({ email });
+
+            if (!user) {
+                return res.status(422).send({ error: 'user-not-found', msg: 'The user associated with this email is not found' });
+            } else {
+                const passwordResetCode = secureRandomString({ length: 6, alphanumeric: true }).toUpperCase();
+                const passwordResetCodeExpiration = Date.now() + PASSWORD_RESET_EXP;
+                user.passwordResetCode = passwordResetCode;
+                user.passwordResetCodeExpiration = passwordResetCodeExpiration;
+                await user.save();
+                await sendPasswordResetEmail(user.email, passwordResetCode);
+                res.json({ success: true });
+            }
+
+        } catch (error) {
+            console.log(error.message);
+            return res.status(422).send({ error: 'error-in-generate-code' });
+        }
+    }
+
+});
+
+// #route:  POST /api/auth/verification/password-reset/verify-code
+// #desc:   Verify users password reset code by post requesting the code if it is valid redirect them to password reset screen
+// #access: Private
+router.post('/api/auth/verification/password-reset/verify-code', async (req, res) => {
+    const { email, passwordResetCode } = req.body;
+
+    if (!email || !passwordResetCode) {
+        return res.status(422).send({ error: 'email-not-found', msg: 'Please provide email' });
+    } else {
+        try {
+            const user = await User.findOne({ email });
+
+            if (!user) {
+                return res.status(422).send({ error: 'user-not-found', msg: 'The user associated with this email is not found' });
+            } 
+            
+            if (Date.now() > user.passwordResetCodeExpiration) {
+                return res.status(422).send({ error: 'password-reset-code-expired', msg: 'Password reset code expired' });
+            }
+
+            if (user.passwordResetCode !== passwordResetCode) {
+                return res.status(422).send({ error: 'password-reset-code-not-match', msg: 'Password reset code doesnt match' });
+            } else {
+                res.json({ success: true });
+            }
+
+        } catch (error) {
+            console.log(error.message);
+            return res.status(422).send({ error: 'error-in-verify-code' });
+        }
+    }
+
+});
+
+// #route:  POST /api/auth/verification/password-reset/reset-password
+// #desc:   Finally after some flow change users password
+// #access: Private
+router.post('/api/auth/verification/password-reset/reset-password', async (req, res) => {
+    const { email, newPasswordEncryption, newPasswordConfirmEncryption } = req.body;
+
+    const newPassword = decryptPassword(newPasswordEncryption);
+    const newPasswordConfirm = decryptPassword(newPasswordConfirmEncryption);
+
+    if (!email || !newPassword || !newPasswordConfirm) {
+        console.log('one of the credentials are missing');
+        return res.status(422).send({ error: 'missin-credentials', msg: 'Please provide email nad password' });
+    } 
+    
+    if (newPassword !== newPasswordConfirm) {
+        console.log('passwords doesnt match');
+        return res.status(422).send({ error: 'passwords-does-not-match', msg: 'Provided password doesnt match' });
+    }
+
+    const passwordSchema = new PasswordValidator();
+ 
+    passwordSchema
+    .is().min(8)                                    // Minimum length 8
+    .is().max(100)                                  // Maximum length 100
+    .has().uppercase()                              // Must have uppercase letters
+    .has().lowercase()                              // Must have lowercase letters
+    .has().digits(2)                                // Must have at least 2 digits
+    .has().not().spaces()                           // Should not have spaces
+    .is().not().oneOf(['Passw0rd', 'Password123']); // Blacklist these values
+
+    if (!passwordSchema.validate(newPassword)) {
+        console.log(`The password you entered is not secure`);
+        return res.status(422).send({ error: 'invalid-password', msg: 'The password you entered is not secure' });
+    }
+
+    try {
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            console.log('user couldnt be found');
+            return res.status(422).send({ error: 'user-not-found', msg: 'The user associated with this email is not found' });
+        } else {
+
+            user.password = newPassword;
+            await user.save();
+
+            /*bcrypt.genSalt(10, (err, salt) => {
+                if (err) {
+                    return err;
+                }
+        
+                bcrypt.hash(user.password, salt, (err, hash) => {
+                    if (err) {
+                        return err;
+                    }
+            
+                    user.password = hash;
+                });
+            }); */
+
+            res.json({ success: true });
+        }
+
+    } catch (error) {
+        console.log(error.message);
+        return res.status(422).send({ error: 'error-in-verify-code' });
+    }
+
 });
 
 module.exports = router;

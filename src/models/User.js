@@ -14,11 +14,14 @@ const userSchema = mongoose.Schema({
     },
     status: {
         type: String,
-        default: "pending"
+        default: "pending",
+        required: true
     },
-    secretEmailToken: {
-        type: String,
-        unique: false
+    emailVerificationToken: {
+        type: String
+    },
+    passwordResetCode: {
+        type: String
     }
 });
 
