@@ -22,6 +22,9 @@ const userSchema = mongoose.Schema({
     },
     passwordResetCode: {
         type: String
+    },
+    passwordResetCodeExpiration: {
+        type: String
     }
 });
 

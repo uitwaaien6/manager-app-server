@@ -15,6 +15,8 @@ app.use(bodyParser.json());
 app.use(authRoutes);
 app.use(employeeRoutes);
 
+const PORT = 3000;
+
 const mongoUri = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@cluster0.oxbp6.mongodb.net/manager?retryWrites=true&w=majority`;
 
 mongoose.connect(mongoUri, {
@@ -36,8 +38,8 @@ app.get('/', authentication, (req, res) => {
     res.send({ emai });
 });
 
-app.listen(3000, (req, res) => {
-    console.log('Listening on port: 3000');
+app.listen(PORT, (req, res) => {
+    console.log(`Listening on port: ${PORT}`);
 });
 
 console.log('WITHOUT WARNING!!!');

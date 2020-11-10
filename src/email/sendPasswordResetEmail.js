@@ -13,7 +13,7 @@ async function sendPasswordResetEmail(email, code) {
         from: 'no-reply@konsolgetir.com',
         to: email,
         subject: 'Your Password Reset Code for YOUR APP',
-        text: `Please use the following code within the next 10 minutes to reset your password on Olay App: ${code}`
+        text: `Please use the following code within the next 10 minutes to reset your password on Olay App: ${code.bold()}`
         //html: `<p>Please use the following code within the next 10 minutes to reset your password on Olay App: <strong>${code}</strong></p>`
     };
       
