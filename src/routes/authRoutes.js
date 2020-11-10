@@ -10,7 +10,7 @@ const { authentication } = require('../middlewares/authentication');
 const { sendVerificationEmail } = require('../email/sendVerificationEmail');
 const { sendPasswordResetEmail } = require('../email/sendPasswordResetEmail');
 
-const DOMAIN_ENDPOINT = `https://843ce0406276.ngrok.io`;
+const DOMAIN_ENDPOINT = `https://b54faa4908ab.ngrok.io`;
 const JWT_EXP = 11000000.00;
 const EMAIL_VERIFICATION_EXP = 11000000.00;
 const PASSWORD_RESET_CODE_EXP = 1100000.00;
@@ -238,7 +238,8 @@ router.post('/api/auth/verification/password-reset/verify-code', async (req, res
     // extract the coefficients from the password reset code
     const passwordResetCode = decryptPassword(passwordResetCodeEncryption);
 
-    
+    console.log(passwordResetCode);
+
     if (!email || !passwordResetCode) {
         return res.status(422).send({ error: 'email-not-found', msg: 'Please provide email' });
     } else {
