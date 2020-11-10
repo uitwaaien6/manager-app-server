@@ -11,9 +11,9 @@ const { sendVerificationEmail } = require('../email/sendVerificationEmail');
 const { sendPasswordResetEmail } = require('../email/sendPasswordResetEmail');
 
 const DOMAIN_ENDPOINT = `https://b54faa4908ab.ngrok.io`;
-const JWT_EXP = 11000000.00;
-const EMAIL_VERIFICATION_EXP = 11000000.00;
-const PASSWORD_RESET_CODE_EXP = 1100000.00;
+const JWT_EXP = 11000000;
+const EMAIL_VERIFICATION_EXP = 11000000;
+const PASSWORD_RESET_CODE_EXP = 1100000;
 const ACTIVE_EMAIL_STATUS = 'active';
 const PENDING_EMAIL_STATUS = 'pending';
 
