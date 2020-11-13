@@ -9,8 +9,9 @@ const { decryptPassword } = require('../encryption/coefficientFairEncryption');
 const { authentication } = require('../middlewares/authentication');
 const { sendVerificationEmail } = require('../email/sendVerificationEmail');
 const { sendPasswordResetEmail } = require('../email/sendPasswordResetEmail');
+const { sendWarningEmail } = require('../email/sendWarningEmail');
 
-const DOMAIN_ENDPOINT = `https://b54faa4908ab.ngrok.io`;
+const DOMAIN_ENDPOINT = `https://a0e5f1114ab9.ngrok.io`;
 const JWT_EXP = 11000000;
 const EMAIL_VERIFICATION_EXP = 11000000;
 const PASSWORD_RESET_CODE_EXP = 1100000;
@@ -238,8 +239,6 @@ router.post('/api/auth/verification/password-reset/verify-code', async (req, res
     // extract the coefficients from the password reset code
     const passwordResetCode = decryptPassword(passwordResetCodeEncryption);
 
-    console.log(passwordResetCode);
-
     if (!email || !passwordResetCode) {
         return res.status(422).send({ error: 'email-not-found', msg: 'Please provide email' });
     } else {
@@ -257,9 +256,10 @@ router.post('/api/auth/verification/password-reset/verify-code', async (req, res
             if (user.passwordResetCode !== passwordResetCode) {
                 return res.status(422).send({ error: 'password-reset-code-not-match', msg: 'Password reset code doesnt match' });
             } else {
-                user.passwordResetCode = undefined;
-                user.passwordResetCodeExpiration = undefined;
-                await user.save();
+                //user.passwordResetCode = undefined;
+                ///user.passwordResetCodeExpiration = undefined;
+                //await user.save();
+                // will delete the password reset code in the next step, after the user enter their new password if it valid.
                 res.json({ success: true });
             }
         } catch (error) {
@@ -274,19 +274,37 @@ router.post('/api/auth/verification/password-reset/verify-code', async (req, res
 // #desc:   Finally after some flow change users password
 // #access: Private
 router.post('/api/auth/verification/password-reset/reset-password', async (req, res) => {
-    const { email, newPasswordEncryption, newPasswordConfirmEncryption } = req.body;
+    const { email, newPasswordEncryption, newPasswordConfirmEncryption, passwordResetCode } = req.body;
+
+    if (!newPasswordEncryption || !newPasswordConfirmEncryption) {
+        console.log('one of the credentials are missing');
+        return res.status(422).send({ error: 'missing-credentials' });
+    }
 
     const newPassword = decryptPassword(newPasswordEncryption);
     const newPasswordConfirm = decryptPassword(newPasswordConfirmEncryption);
 
+    
     if (!email || !newPassword || !newPasswordConfirm) {
         console.log('one of the credentials are missing');
         return res.status(422).send({ error: 'missin-credentials', msg: 'Please provide email nad password' });
     } 
 
+    const user = await User.findOne({ email });
+
+    if (!user) {
+        console.log('user couldnt be found');
+        return res.status(422).send({ error: 'user-not-found', msg: 'The user associated with this email is not found' });
+    }
+
     if (newPassword !== newPasswordConfirm) {
         console.log('passwords doesnt match');
         return res.status(422).send({ error: 'passwords-does-not-match', msg: 'Provided password doesnt match' });
+    }
+
+    if (Date.now() > user.passwordResetCodeExpiration) {
+
+        return res.status(422).send({ error: 'password-reset-code-expired', msg: 'Password reset code expired' });
     }
 
     const passwordSchema = new PasswordValidator();
@@ -306,21 +324,22 @@ router.post('/api/auth/verification/password-reset/reset-password', async (req, 
     }
 
     try {
-        const user = await User.findOne({ email });
 
-        if (!user) {
-            console.log('user couldnt be found');
-            return res.status(422).send({ error: 'user-not-found', msg: 'The user associated with this email is not found' });
+        if (user.passwordResetCode !== passwordResetCode) {
+            console.log('one of the credentials are missing');
+            return res.status(422).send({ error: 'password-reset-code-not-match', msg: 'Password reset code doesnt match' });
         } else {
             user.password = newPassword;
+            user.passwordResetCode = undefined;
+            user.passwordResetCodeExpiration = undefined;
             await user.save();
-
+            await sendWarningEmail(user.email);
             res.json({ success: true });
-
         }
 
     } catch (error) {
         console.log(error.message);
+        console.log('one of the credentials are missing');
         return res.status(422).send({ error: 'error-in-verify-code' });
     }
 
