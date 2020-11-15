@@ -15,6 +15,7 @@ app.use(bodyParser.json());
 app.use(authRoutes);
 app.use(employeeRoutes);
 
+
 const PORT = 3000;
 
 const mongoUri = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@cluster0.oxbp6.mongodb.net/manager?retryWrites=true&w=majority`;
@@ -35,7 +36,7 @@ mongoose.connection.on('error', (err) => {
 
 app.get('/', authentication, (req, res) => {
     const email = req.user.email;
-    res.send({ emai });
+    res.json({ email });
 });
 
 app.listen(PORT, (req, res) => {

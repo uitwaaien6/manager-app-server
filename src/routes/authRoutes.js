@@ -11,7 +11,7 @@ const { sendVerificationEmail } = require('../email/sendVerificationEmail');
 const { sendPasswordResetEmail } = require('../email/sendPasswordResetEmail');
 const { sendWarningEmail } = require('../email/sendWarningEmail');
 
-const DOMAIN_ENDPOINT = `https://a0e5f1114ab9.ngrok.io`;
+const DOMAIN_ENDPOINT = `https://939b52fd0d43.ngrok.io`;
 const JWT_EXP = 11000000;
 const EMAIL_VERIFICATION_EXP = 11000000;
 const PASSWORD_RESET_CODE_EXP = 1100000;
@@ -104,17 +104,18 @@ router.get('/api/auth/verification/verify-account/:userId/:verificationToken/:ex
 
         if (user.emailVerificationToken !== verificationToken || Date.now() > expiration) {
             return res.status(422).send({ error: 'verificationToken-does-not-match, verificationToken-expired', msg: 'Users token doesnt match with verification token or its expired' });
+        } else {
+            user.status = ACTIVE_EMAIL_STATUS;
+            user.emailVerificationToken = undefined;
+            await user.save();
+    
+            res.json({ success: true, msg: 'Your account has been verified' });
         }
 
-        user.status = ACTIVE_EMAIL_STATUS;
-        user.emailVerificationToken = undefined;
-        await user.save();
-
-        res.json({ success: true, msg: 'Your account has been verified' });
     } catch (error) {
         console.log(error.message);
+        return res.status(422).send({ error });
     }
-
 
 });
 
@@ -175,27 +176,32 @@ router.get('/api/auth/verification/verify-account/check-user-status', authentica
 router.post('/signin', async (req, res) => {
     const { email, passwordEncryption } = req.body;
 
+    if (!passwordEncryption) {
+        return res.status(422).send({ error: 'password-encryption-missin' });
+    }
+
     const password = decryptPassword(passwordEncryption);
 
     if (!email || !password) {
         return res.status(422).send({ msg: 'Something went wrong' });
-    }
-
-    try {
-        const user = await User.findOne({ email });
-
-        if (!user) {
-            return res.status(422).send({ error: 'Email not found' });
-        } else {
-            await user.comparePassword(password);
-            const tokenExpInMin = Math.floor(JWT_EXP / 60000);
-            const token = jwt.sign({ userId: user._id, status: user.status }, 'MY_SECRET_KEY', { expiresIn: `${tokenExpInMin}m` });
-            const jwtExpiration = Date.now() + JWT_EXP;
-            res.json({ token, jwtExpiration });
+    } else {
+        try {
+            const user = await User.findOne({ email });
+    
+            if (!user) {
+                return res.status(422).send({ error: 'Email not found' });
+            } else {
+                await user.comparePassword(password);
+                const tokenExpInMin = Math.floor(JWT_EXP / 60000);
+                const token = jwt.sign({ userId: user._id, status: user.status }, 'MY_SECRET_KEY', { expiresIn: `${tokenExpInMin}m` });
+                const jwtExpiration = Date.now() + JWT_EXP;
+                res.json({ token, jwtExpiration });
+            }
+        } catch (error) {
+            return res.status(422).send({ error: 'Invalid password or email' });
         }
-    } catch (error) {
-        return res.status(422).send({ error: 'Invalid password or email' });
     }
+
 });
 
 
@@ -232,7 +238,7 @@ router.post('/api/auth/verification/password-reset/generate-code', async (req, r
 
 // #route:  POST /api/auth/verification/password-reset/verify-code
 // #desc:   Verify users password reset code by post requesting the code if it is valid redirect them to password reset screen
-// #access: Private
+// #access: Public
 router.post('/api/auth/verification/password-reset/verify-code', async (req, res) => {
     const { email, passwordResetCodeEncryption } = req.body;
 
@@ -277,7 +283,6 @@ router.post('/api/auth/verification/password-reset/reset-password', async (req, 
     const { email, newPasswordEncryption, newPasswordConfirmEncryption, passwordResetCode } = req.body;
 
     if (!newPasswordEncryption || !newPasswordConfirmEncryption) {
-        console.log('one of the credentials are missing');
         return res.status(422).send({ error: 'missing-credentials' });
     }
 
@@ -319,14 +324,12 @@ router.post('/api/auth/verification/password-reset/reset-password', async (req, 
     .is().not().oneOf(['Passw0rd', 'Password123']); // Blacklist these values
 
     if (!passwordSchema.validate(newPassword)) {
-        console.log(`The password you entered is not secure`);
         return res.status(422).send({ error: 'invalid-password', msg: 'The password you entered is not secure' });
     }
 
     try {
 
         if (user.passwordResetCode !== passwordResetCode) {
-            console.log('one of the credentials are missing');
             return res.status(422).send({ error: 'password-reset-code-not-match', msg: 'Password reset code doesnt match' });
         } else {
             user.password = newPassword;
@@ -339,7 +342,6 @@ router.post('/api/auth/verification/password-reset/reset-password', async (req, 
 
     } catch (error) {
         console.log(error.message);
-        console.log('one of the credentials are missing');
         return res.status(422).send({ error: 'error-in-verify-code' });
     }
 

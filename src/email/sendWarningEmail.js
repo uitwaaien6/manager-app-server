@@ -10,10 +10,10 @@ async function sendWarningEmail(email) {
     });
       
     const mailOptions = {
-        from: 'no-reply@konsolgetir.com',
+        from: 'no-reply@olayapp.com',
         to: email,
         subject: 'Your Account Password has been changed!',
-        text: `You Account "${email}" Password has been changed. If you didn't do that action please take action immediatelly`
+        text: `You Account "${email}'s" Password has been changed. If you didn't do that action please take action immediatelly`
         //html: `<p>Please use the following code within the next 10 minutes to reset your password on Olay App: <strong>${code}</strong></p>`
     };
       
