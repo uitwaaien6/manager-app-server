@@ -87,7 +87,9 @@ router.post('/signup', async (req, res) => {
 
 // #route:  GET /api/auth/verification/verify-account/:userId/:verificationToken:expiration
 // #desc:   Email verification route
-// #access: Private
+// #access: Private                                                          !!! SECURITY VULNERABILITY IN URL PARAMETERS !!!
+//                                                                           USER CAN CHANGE THE EMAIL VERIFICATION TOKEN EXPIRATION TIME EASILY BY MANIPULATING LAST PARAMETER OF URL
+//                                                                           WILL CHANGE IN THE FUTURE, EXPIRATION VALUE SHOULD STICKED TO THE USER OBJECT IN THE DATABASE
 router.get('/api/auth/verification/verify-account/:userId/:verificationToken/:expiration', async (req, res) => {
     const { userId, verificationToken, expiration } = req.params;
 
