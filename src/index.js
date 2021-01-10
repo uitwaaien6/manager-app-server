@@ -18,7 +18,7 @@ app.use(employeeRoutes);
 
 const PORT = 3000;
 
-const mongoUri = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@cluster0.oxbp6.mongodb.net/manager?retryWrites=true&w=majority`;
+const mongoUri = `mongodb+srv://${process.env.DB_USERNAME}:${process.env.DB_PASSWORD}@${MONGO_DATABASE_URI}`;
 
 mongoose.connect(mongoUri, {
     useNewUrlParser: true,
